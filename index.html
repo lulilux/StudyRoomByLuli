@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Study Room - Tu Espacio</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Fuentes -->
+    <link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #FDFBF7; -webkit-tap-highlight-color: transparent; }
+        .font-serif { font-family: 'Merriweather', serif; }
+        .perspective-1000 { perspective: 1000px; }
+        .transform-style-3d { transform-style: preserve-3d; }
+        .backface-hidden { backface-visibility: hidden; }
+        .rotate-y-180 { transform: rotateY(180deg); }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .animate-in { animation: fadeIn 0.5s ease-out forwards; }
+        
+        @media (max-width: 640px) {
+            .mobile-stack { flex-direction: column; }
+            .mobile-full { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- TUS CREDENCIALES DE FIREBASE ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyC-S-aJuci8UILddXw1yWLTRQyRy8QjHS4",
+            authDomain: "studyroom-6323c.firebaseapp.com",
+            projectId: "studyroom-6323c",
+            storageBucket: "studyroom-6323c.firebasestorage.app",
+            messagingSenderId: "380455440956",
+            appId: "1:380455440956:web:eb647c6fb87c30e0f42939"
+        };
+        
+        // Inicializamos Firebase con tus datos
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const provider = new GoogleAuthProvider();
+        const appId = "studyroom-6323c"; // ID para guardar datos ordenados
+
+        // Exportamos para que React lo use
+        window.firebaseServices = { 
+            auth, db, provider, signInWithPopup, signOut, doc, setDoc, onSnapshot, 
+            signInAnonymously, signInWithCustomToken, onAuthStateChanged, appId 
+        };
+    </script>
+
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect } from 'https://esm.sh/react@18.2.0?dev';
+        import { createRoot } from 'https://esm.sh/react-dom@18.2.0/client?dev';
+        import { 
+            Book, Plus, Trash2, ChevronRight, ChevronLeft, ArrowLeft, ArrowRight,
+            Library, Save, X, RotateCw, LayoutGrid, Play, Edit2, Check, MoveLeft,
+            MoveRight, ArrowUp, ArrowDown, Calendar, GraduationCap, FileText,
+            Clock, Bell, BellRing, AlertCircle, Settings, LogIn, LogOut, User, BookOpen, Shuffle
+        } from 'https://esm.sh/lucide-react@0.263.1?dev';
+
+        // --- Constantes y Tema ---
+        const PALETTE = { c1: '#CC997A', c2: '#E1C6B5', c3: '#F1E8D9', c4: '#C1C0AE', c5: '#777C68' };
+        
+        const CARD_COLORS = [
+            { id: 'c3', bg: 'bg-[#F1E8D9]', backHex: '#C5B4A0', label: 'Crema' }, 
+            { id: 'c2', bg: 'bg-[#E1C6B5]', backHex: '#B89B88', label: 'Beige' }, 
+            { id: 'c1', bg: 'bg-[#CC997A]', backHex: '#9E7052', label: 'Terracota' }, 
+            { id: 'c4', bg: 'bg-[#C1C0AE]', backHex: '#8C8B7A', label: 'Salvia' }, 
+            { id: 'c5', bg: 'bg-[#777C68]', backHex: '#4A4E3E', label: 'Oliva', text: 'text-white' }, 
+        ];
+
+        const THEME = {
+            bg: `bg-[#FDFBF7]`, text: `text-[#1a1a1a]`, textMuted: `text-[#777C68]`, 
+            primary: `bg-[#C1C0AE] text-[#1a1a1a] hover:bg-[#b0af9d] active:bg-[#a09f8d]`, 
+            secondary: `bg-white text-[#1a1a1a] border border-[#C1C0AE] hover:bg-[#F1E8D9]`,
+            accent: `text-[#CC997A]`, logoBg: `bg-[#E1C6B5] text-[#1a1a1a]`, 
+            inputBorder: `border-[#C1C0AE] focus:ring-[#CC997A]`,
+        };
+
+        // --- Componentes UI ---
+        const Button = ({ children, onClick, variant = 'primary', className = '', ...props }) => (
+            <button onClick={onClick} className={`px-4 py-3 md:py-2 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 shadow-sm ${variant === 'primary' ? THEME.primary : THEME.secondary} ${className}`} {...props}>
+                {children}
+            </button>
+        );
+
+        const Input = ({ className = '', ...props }) => (
+            <input className={`w-full px-4 py-2 border rounded-lg outline-none transition-all bg-white ${THEME.text} ${THEME.inputBorder} focus:ring-2 focus:border-transparent ${className}`} {...props} />
+        );
+
+        const Select = ({ className = '', options = [], ...props }) => (
+            <select className={`w-full px-4 py-2 border rounded-lg outline-none transition-all bg-white ${THEME.text} ${THEME.inputBorder} focus:ring-2 focus:border-transparent appearance-none cursor-pointer ${className}`} {...props}>
+                {options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+            </select>
+        );
+
+        const TextArea = ({ className = '', ...props }) => (
+            <textarea className={`w-full px-4 py-2 border rounded-lg outline-none transition-all resize-none bg-white ${THEME.text} ${THEME.inputBorder} focus:ring-2 focus:border-transparent ${className}`} {...props} />
+        );
+
+        const ColorSelector = ({ selectedColor, onSelect }) => (
+            <div className="flex items-center gap-3">
+                <span className={`text-sm ${THEME.textMuted} font-medium`}>Color:</span>
+                <div className="flex gap-2">
+                    {CARD_COLORS.map(c => (
+                        <button key={c.id} onClick={() => onSelect(c.id)} type="button" className={`w-8 h-8 rounded-full ${c.bg} shadow-sm flex items-center justify-center transition-transform ${selectedColor === c.id ? `ring-2 ring-[#1a1a1a] scale-110` : `hover:scale-105`}`}>
+                            {selectedColor === c.id && <Check size={14} className={c.id === 'c5' ? 'text-white' : 'text-[#1a1a1a]'} />}
+                        </button>
+                    ))}
+                </div>
+            </div>
+        );
+
+        const EmptyState = ({ icon: Icon, title, text, onClick }) => (
+            <div onClick={onClick} className="border-2 border-dashed border-[#C1C0AE] rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-[#F1E8D9]/20 transition group min-h-[200px]">
+                <div className="p-4 bg-[#F1E8D9] rounded-full mb-3 group-hover:scale-110 transition-transform">
+                    <Icon size={32} className={THEME.textMuted} />
+                </div>
+                <h3 className={`font-bold text-lg ${THEME.accent} mb-1`}>{title}</h3>
+                <p className={`text-sm ${THEME.textMuted}`}>{text}</p>
+            </div>
+        );
+
+        // --- Flashcard Component ---
+        const Flashcard = ({ question, answer, colorId, isFlipped, onFlip, className = "w-full aspect-square max-h-72" }) => {
+            const colorObj = CARD_COLORS.find(c => c.id === colorId) || CARD_COLORS[0];
+            const textColor = colorObj.id === 'c5' ? 'text-white' : 'text-[#1a1a1a]';
+            const labelColor = colorObj.id === 'c5' ? 'text-white/70' : 'text-[#1a1a1a]/60';
+
+            return (
+                <div className={`relative cursor-pointer perspective-1000 group select-none ${className}`} onClick={onFlip}>
+                    <div className={`relative w-full h-full transition-transform duration-500 transform-style-3d shadow-lg rounded-xl ${isFlipped ? 'rotate-y-180' : ''}`}>
+                        {/* Frente */}
+                        <div className={`absolute w-full h-full backface-hidden ${colorObj.bg} rounded-xl p-6 flex flex-col items-center justify-center text-center`}>
+                            <span className={`${labelColor} text-[10px] font-bold tracking-widest uppercase mb-2`}>Frente</span>
+                            <p className={`text-xl font-medium ${textColor} font-serif leading-relaxed line-clamp-6`}>{question}</p>
+                            <p className={`absolute bottom-4 text-xs ${labelColor} opacity-60`}>Tocar para voltear</p>
+                        </div>
+                        {/* Dorso */}
+                        <div className={`absolute w-full h-full backface-hidden rotate-y-180 rounded-xl p-6 flex flex-col items-center justify-center text-center text-[#FDFBF7]`} style={{ backgroundColor: colorObj.backHex }}>
+                            <span className={`text-[#FDFBF7]/70 text-[10px] font-bold tracking-widest uppercase mb-2`}>Dorso</span>
+                            <p className="text-lg font-medium leading-relaxed overflow-y-auto max-h-full scrollbar-hide">{answer}</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Calendar Component ---
+        const CalendarWidget = ({ events, onUpdateEvents }) => {
+            const [currentDate, setCurrentDate] = useState(new Date());
+            const [selectedDate, setSelectedDate] = useState(new Date());
+            const [isModalOpen, setIsModalOpen] = useState(false);
+            const [newEvent, setNewEvent] = useState({ title: '', type: 'examen' });
+            
+            const months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+            const daysOfWeek = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+            
+            const getDaysInMonth = (date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+            const getFirstDayOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+            const formatDateKey = (date) => date.toISOString().split('T')[0];
+
+            const handleAddEvent = (e) => {
+                e.preventDefault();
+                if (!newEvent.title) return;
+                const event = { id: Date.now(), dateStr: formatDateKey(selectedDate), ...newEvent };
+                onUpdateEvents([...events, event]);
+                setNewEvent({ title: '', type: 'examen' });
+                setIsModalOpen(false);
+            };
+
+            const handleDeleteEvent = (id) => {
+                if(confirm('¿Borrar evento?')) onUpdateEvents(events.filter(ev => ev.id !== id));
+            };
+
+            const selectedDayEvents = events.filter(e => e.dateStr === formatDateKey(selectedDate));
+
+            return (
+                <div className="mt-12 border-t border-[#C1C0AE] pt-8 animate-in fade-in">
+                    <h2 className={`text-2xl font-bold font-serif ${THEME.accent} flex items-center gap-2 mb-6`}><Calendar size={24} /> Agenda Académica</h2>
+                    
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-[#C1C0AE] overflow-hidden">
+                            <div className="flex items-center justify-between p-4 border-b border-[#F1E8D9] bg-[#FDFBF7]">
+                                <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))} className={`p-2 hover:bg-[#F1E8D9] rounded-full`}><ChevronLeft size={20} /></button>
+                                <h3 className={`text-lg font-bold font-serif capitalize`}>{months[currentDate.getMonth()]} {currentDate.getFullYear()}</h3>
+                                <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))} className={`p-2 hover:bg-[#F1E8D9] rounded-full`}><ChevronRight size={20} /></button>
+                            </div>
+                            <div className="grid grid-cols-7 text-center bg-[#F1E8D9]/50 border-b border-[#F1E8D9]">
+                                {daysOfWeek.map(day => <div key={day} className={`py-2 text-[10px] font-bold ${THEME.textMuted} uppercase`}>{day}</div>)}
+                            </div>
+                            <div className="grid grid-cols-7 bg-white">
+                                {Array.from({length: getFirstDayOfMonth(currentDate)}).map((_, i) => <div key={`e-${i}`} className="h-16 sm:h-20 bg-[#FDFBF7] border border-[#F1E8D9]"></div>)}
+                                {Array.from({length: getDaysInMonth(currentDate)}).map((_, i) => {
+                                    const day = i + 1;
+                                    const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+                                    const dKey = formatDateKey(date);
+                                    const isSel = formatDateKey(selectedDate) === dKey;
+                                    const dEvents = events.filter(e => e.dateStr === dKey);
+                                    return (
+                                        <div key={day} onClick={() => setSelectedDate(date)} className={`h-16 sm:h-20 border border-[#F1E8D9] p-1 cursor-pointer relative ${isSel ? 'bg-[#F1E8D9] ring-2 ring-[#CC997A] inset-0 z-10' : 'hover:bg-[#FDFBF7]'}`}>
+                                            <span className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${formatDateKey(new Date()) === dKey ? 'bg-[#CC997A] text-white' : THEME.textMuted}`}>{day}</span>
+                                            <div className="flex gap-1 mt-1 flex-wrap">
+                                                {dEvents.map((ev, idx) => <div key={idx} className={`w-1.5 h-1.5 rounded-full ${ev.type==='examen'?'bg-[#CC997A]':'bg-[#777C68]'}`}></div>)}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-xl shadow-sm border border-[#C1C0AE] flex flex-col h-[400px]">
+                            <div className="p-4 border-b border-[#F1E8D9] bg-[#FDFBF7]">
+                                <h3 className="font-bold">{selectedDate.getDate()} de {months[selectedDate.getMonth()]}</h3>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                                {selectedDayEvents.length === 0 ? <p className={`text-sm ${THEME.textMuted} text-center`}>Sin eventos</p> : 
+                                    selectedDayEvents.map(ev => (
+                                        <div key={ev.id} className={`p-3 rounded-lg border-l-4 shadow-sm bg-[#FDFBF7] flex justify-between items-start ${ev.type==='examen'?'border-[#CC997A]':'border-[#777C68]'}`}>
+                                            <div><h4 className="font-bold text-sm">{ev.title}</h4><span className="text-[10px] uppercase font-bold text-[#777C68]">{ev.type}</span></div>
+                                            <button onClick={() => handleDeleteEvent(ev.id)}><Trash2 size={14} className="text-[#C1C0AE] hover:text-red-500"/></button>
+                                        </div>
+                                    ))
+                                }
+                            </div>
+                            <div className="p-4 border-t border-[#F1E8D9]"><Button onClick={() => setIsModalOpen(true)} className="w-full justify-center"><Plus size={16}/> Agregar</Button></div>
+                        </div>
+                    </div>
+
+                    {isModalOpen && (
+                        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                            <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-4 animate-in zoom-in-95">
+                                <h3 className="font-bold mb-4">Nuevo Evento</h3>
+                                <div className="space-y-4">
+                                    <Input autoFocus value={newEvent.title} onChange={e => setNewEvent({...newEvent, title: e.target.value})} placeholder="Título..." />
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <button onClick={() => setNewEvent({...newEvent, type:'examen'})} className={`py-2 rounded border text-sm ${newEvent.type==='examen'?'bg-[#CC997A] text-white':'text-[#777C68]'}`}>Examen</button>
+                                        <button onClick={() => setNewEvent({...newEvent, type:'inscripcion'})} className={`py-2 rounded border text-sm ${newEvent.type==='inscripcion'?'bg-[#777C68] text-white':'text-[#777C68]'}`}>Inscripción</button>
+                                    </div>
+                                    <div className="flex gap-2"><Button variant="ghost" onClick={() => setIsModalOpen(false)} className="flex-1">Cancelar</Button><Button onClick={handleAddEvent} className="flex-1">Guardar</Button></div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // --- Main App ---
+        function App() {
+            const [user, setUser] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [data, setData] = useState([]);
+            const [events, setEvents] = useState([]);
+            const [settings, setSettings] = useState({ careerName: 'Mi Carrera', years: 5 });
+
+            const [view, setView] = useState('home'); 
+            const [activeSubjectId, setActiveSubjectId] = useState(null);
+            const [activeTopicId, setActiveTopicId] = useState(null);
+            const [isStudyMode, setIsStudyMode] = useState(false);
+            
+            // Estado de Estudio
+            const [studyCards, setStudyCards] = useState([]); 
+            const [currentCardIndex, setCurrentCardIndex] = useState(0);
+            const [flippedCards, setFlippedCards] = useState({});
+            const [studyCardFlipped, setStudyCardFlipped] = useState(false);
+            const [animStatus, setAnimStatus] = useState('idle'); 
+
+            const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+            const [editingItem, setEditingItem] = useState(null); 
+            const [isAdding, setIsAdding] = useState(false);
+            
+            const [formName, setFormName] = useState('');
+            const [formDesc, setFormDesc] = useState('');
+            const [formQ, setFormQ] = useState('');
+            const [formA, setFormA] = useState('');
+            const [formColor, setFormColor] = useState('c3');
+            const [formYearTaken, setFormYearTaken] = useState(new Date().getFullYear());
+            const [formSemester, setFormSemester] = useState('1° Cuatrimestre');
+            const [formCareerYear, setFormCareerYear] = useState('1° Año');
+
+            // --- Firebase Integration (CORREGIDO: Sin auto-login para configuración personalizada) ---
+            useEffect(() => {
+                const { auth, onAuthStateChanged } = window.firebaseServices;
+                
+                // NOTA: Como usamos credenciales personalizadas, el token automático del entorno 
+                // generará un error de "mismatch". Por lo tanto, eliminamos la llamada a signInWithCustomToken.
+                // El usuario debe iniciar sesión manualmente con el botón "Acceder" (Google).
+
+                const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+                    setUser(currentUser);
+                    setLoading(false);
+                });
+                return () => unsubscribe();
+            }, []);
+
+            useEffect(() => {
+                if (!user) return;
+                const { db, onSnapshot, doc, appId } = window.firebaseServices;
+                const unsubs = [
+                    onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'master'), snap => snap.exists() && setData(snap.data().items || [])),
+                    onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'settings'), snap => snap.exists() && setSettings(snap.data())),
+                    onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'events'), snap => snap.exists() && setEvents(snap.data().items || []))
+                ];
+                return () => unsubs.forEach(u => u());
+            }, [user]);
+
+            const saveToFirestore = async (collectionName, dataToSave) => {
+                if (!user) {
+                    alert("⚠️ Debes iniciar sesión (botón 'Acceder') para guardar tus cambios.");
+                    return;
+                }
+                const { db, setDoc, doc, appId } = window.firebaseServices;
+                try { await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', collectionName), dataToSave); } catch (e) { console.error(e); }
+            };
+
+            const handleUpdateEvents = (newEvents) => {
+                saveToFirestore('events', { items: newEvents });
+            };
+
+            const handleLogin = async () => {
+                try { await window.firebaseServices.signInWithPopup(window.firebaseServices.auth, window.firebaseServices.provider); } catch (e) { alert(e.message); }
+            };
+
+            const handleLogout = async () => {
+                await window.firebaseServices.signOut(window.firebaseServices.auth);
+                window.location.reload();
+            };
+
+            // --- Logic & Shortcuts ---
+            const activeSubject = data.find(s => s.id === activeSubjectId);
+            const activeTopic = activeSubject?.topics.find(t => t.id === activeTopicId);
+
+            const startStudy = (random = false) => {
+                if (!activeTopic || activeTopic.cards.length === 0) {
+                    alert("Agrega tarjetas primero");
+                    return;
+                }
+                let cards = [...activeTopic.cards];
+                if (random) cards.sort(() => Math.random() - 0.5);
+                setStudyCards(cards);
+                setCurrentCardIndex(0);
+                setStudyCardFlipped(false);
+                setIsStudyMode(true);
+            };
+
+            const handleNextCard = () => {
+                if (studyCards.length > 0) {
+                    setStudyCardFlipped(false);
+                    setCurrentCardIndex(prev => prev < studyCards.length - 1 ? prev + 1 : 0);
+                }
+            };
+
+            const handlePrevCard = () => {
+                if (studyCards.length > 0) {
+                    setStudyCardFlipped(false);
+                    setCurrentCardIndex(prev => prev > 0 ? prev - 1 : studyCards.length - 1);
+                }
+            };
+
+            useEffect(() => {
+                if (!isStudyMode) return;
+                const handleKeyDown = (e) => {
+                    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); handleNextCard(); }
+                    else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { e.preventDefault(); handlePrevCard(); }
+                    else if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); setStudyCardFlipped(prev => !prev); }
+                };
+                window.addEventListener('keydown', handleKeyDown);
+                return () => window.removeEventListener('keydown', handleKeyDown);
+            }, [isStudyMode, currentCardIndex, studyCards]); 
+
+            const handleSaveSettings = (e) => {
+                e.preventDefault();
+                saveToFirestore('settings', settings);
+                setIsSettingsOpen(false);
+            };
+
+            const handleSaveSubject = () => {
+                if (!formName.trim()) return;
+                const newSubject = { name: formName, color: formColor, yearTaken: formYearTaken, semester: formSemester, careerYear: formCareerYear };
+                let newData = editingItem 
+                    ? data.map(s => s.id === editingItem.id ? { ...s, ...newSubject } : s)
+                    : [...data, { id: Date.now(), ...newSubject, topics: [] }];
+                saveToFirestore('master', { items: newData });
+                setIsAdding(false); setEditingItem(null); resetForms();
+            };
+
+            const handleSaveTopic = () => {
+                if (!formName.trim()) return;
+                const newData = data.map(sub => {
+                    if (sub.id === activeSubjectId) {
+                        const newTopic = { name: formName, description: formDesc, color: formColor };
+                        return editingItem 
+                            ? { ...sub, topics: sub.topics.map(t => t.id === editingItem.id ? { ...t, ...newTopic } : t) }
+                            : { ...sub, topics: [...sub.topics, { id: Date.now(), ...newTopic, cards: [] }] };
+                    }
+                    return sub;
+                });
+                saveToFirestore('master', { items: newData });
+                setIsAdding(false); setEditingItem(null); resetForms();
+            };
+
+            const handleSaveCard = () => {
+                if (!formQ.trim() || !formA.trim()) return;
+                const newData = data.map(sub => {
+                    if (sub.id === activeSubjectId) {
+                        const updatedTopics = sub.topics.map(topic => {
+                            if (topic.id === activeTopicId) {
+                                const newCard = { question: formQ, answer: formA, color: formColor };
+                                return editingItem
+                                    ? { ...topic, cards: topic.cards.map(c => c.id === editingItem.id ? { ...c, ...newCard } : c) }
+                                    : { ...topic, cards: [...topic.cards, { id: Date.now(), ...newCard }] };
+                            }
+                            return topic;
+                        });
+                        return { ...sub, topics: updatedTopics };
+                    }
+                    return sub;
+                });
+                saveToFirestore('master', { items: newData });
+                setIsAdding(false); setEditingItem(null); resetForms();
+            };
+
+            const deleteItem = (type, id) => {
+                if (!confirm("¿Seguro que deseas eliminar esto?")) return;
+                
+                let newData = [...data]; // Copia para mutar localmente
+                
+                if (type === 'subject') {
+                    newData = newData.filter(s => s.id !== id);
+                } else if (type === 'topic') {
+                    const subIndex = newData.findIndex(s => s.id === activeSubjectId);
+                    if (subIndex > -1) {
+                         const sub = newData[subIndex];
+                         newData[subIndex] = { ...sub, topics: sub.topics.filter(t => t.id !== id) };
+                    }
+                } else if (type === 'card') {
+                     const subIndex = newData.findIndex(s => s.id === activeSubjectId);
+                     if (subIndex > -1) {
+                        const sub = newData[subIndex];
+                        const topicIndex = sub.topics.findIndex(t => t.id === activeTopicId);
+                        if (topicIndex > -1) {
+                            const topic = sub.topics[topicIndex];
+                            const newTopics = [...sub.topics];
+                            newTopics[topicIndex] = { ...topic, cards: topic.cards.filter(c => c.id !== id) };
+                            newData[subIndex] = { ...sub, topics: newTopics };
+                        }
+                     }
+                }
+                
+                // Actualización doble: Local (para que se vea rápido) y Remota
+                setData(newData); 
+                saveToFirestore('master', { items: newData });
+
+                // Redireccionar si borramos lo que estamos viendo
+                if (type === 'subject' && id === activeSubjectId) setView('home');
+                if (type === 'topic' && id === activeTopicId) setView('subject');
+            };
+
+            const resetForms = () => { setFormName(''); setFormDesc(''); setFormQ(''); setFormA(''); setFormColor('c3'); };
+
+            // --- Renderers ---
+
+            const renderSettingsModal = () => (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden animate-in zoom-in-95">
+                        <div className="flex justify-between items-center p-4 border-b border-[#F1E8D9]">
+                            <h3 className="font-bold flex items-center gap-2"><Settings size={18}/> Configurar Carrera</h3>
+                            <button onClick={() => setIsSettingsOpen(false)}><X size={20} className="text-[#C1C0AE] hover:text-black"/></button>
+                        </div>
+                        <form onSubmit={handleSaveSettings} className="p-5 space-y-4">
+                            <div><label className={`block text-xs font-bold ${THEME.textMuted} uppercase mb-1`}>Nombre</label><Input value={settings.careerName} onChange={e => setSettings({...settings, careerName: e.target.value})} /></div>
+                            <div><label className={`block text-xs font-bold ${THEME.textMuted} uppercase mb-1`}>Duración (Años)</label><Input type="number" min="1" max="10" value={settings.years} onChange={e => setSettings({...settings, years: parseInt(e.target.value) || 1})} /></div>
+                            <Button type="submit" className="w-full mt-4">Guardar</Button>
+                        </form>
+                    </div>
+                </div>
+            );
+
+            const renderHeader = () => (
+                <header className={`bg-white/90 backdrop-blur-md shadow-sm sticky top-0 z-50 border-b border-[#E1C6B5]`}>
+                    <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+                        <div className="flex items-center gap-3" onClick={() => { setView('home'); setIsStudyMode(false); }} role="button">
+                            <div className={`p-2 rounded-lg ${THEME.logoBg}`}><Library size={24} /></div>
+                            <div><h1 className={`text-xl font-bold ${THEME.text} font-serif leading-none`}>Study Room</h1><p className="text-[10px] text-[#777C68] font-medium mt-1">{settings.careerName}</p></div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button onClick={() => setIsSettingsOpen(true)} className="p-2 rounded-full hover:bg-[#F1E8D9] text-[#777C68] transition"><Settings size={20} /></button>
+                            {user?.isAnonymous === false ? (
+                                <div className="flex items-center gap-2 pl-2 border-l border-[#C1C0AE]">
+                                    <img src={user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName}`} className="w-8 h-8 rounded-full border border-[#CC997A]" alt="User"/>
+                                    <button onClick={handleLogout} className="p-2 rounded-full hover:bg-red-50 text-red-400"><LogOut size={18}/></button>
+                                </div>
+                            ) : <button onClick={handleLogin} className="flex items-center gap-2 text-xs font-bold bg-white border border-[#C1C0AE] px-3 py-1.5 rounded-full hover:bg-[#F1E8D9]"><LogIn size={14}/> Acceder</button>}
+                        </div>
+                    </div>
+                </header>
+            );
+
+            const renderHome = () => (
+                <div className="space-y-6 animate-in fade-in">
+                    <div className="flex justify-between items-center"><h2 className={`text-2xl font-serif font-bold ${THEME.accent}`}>Mis Materias</h2><Button onClick={() => { resetForms(); setEditingItem(null); setIsAdding(true); }}><Plus size={20}/> <span className="hidden sm:inline">Nueva</span></Button></div>
+                    {isAdding && (
+                        <div className="bg-white p-5 rounded-xl shadow-lg border border-[#C1C0AE] animate-in zoom-in-95">
+                            <h3 className="font-bold mb-4">{editingItem ? 'Editar Materia' : 'Nueva Materia'}</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div><label className="text-xs font-bold text-[#777C68]">NOMBRE</label><Input autoFocus value={formName} onChange={e => setFormName(e.target.value)} /></div>
+                                <div><label className="text-xs font-bold text-[#777C68]">AÑO CARRERA</label><Select value={formCareerYear} onChange={e => setFormCareerYear(e.target.value)} options={Array.from({length: settings.years}, (_, i) => ({ value: `${i+1}° Año`, label: `${i+1}° Año` }))} /></div>
+                                <div><label className="text-xs font-bold text-[#777C68]">CUATRIMESTRE</label><Select value={formSemester} onChange={e => setFormSemester(e.target.value)} options={[{value:'1° Cuatrimestre', label:'1° Cuatrimestre'}, {value:'2° Cuatrimestre', label:'2° Cuatrimestre'}, {value:'Anual', label:'Anual'}]} /></div>
+                                <div><label className="text-xs font-bold text-[#777C68]">CURSADA EN</label><Input type="number" value={formYearTaken} onChange={e => setFormYearTaken(e.target.value)} /></div>
+                            </div>
+                            <div className="flex flex-col sm:flex-row justify-between items-center mt-6 gap-4"><ColorSelector selectedColor={formColor} onSelect={setFormColor} /><div className="flex gap-2 w-full sm:w-auto mobile-stack"><Button variant="ghost" onClick={() => setIsAdding(false)} className="w-full sm:w-auto">Cancelar</Button><Button onClick={handleSaveSubject} className="w-full sm:w-auto">Guardar</Button></div></div>
+                        </div>
+                    )}
+                    {data.length === 0 && !isAdding && <EmptyState icon={Book} title="Aún no hay materias" text="Comienza agregando tu primera materia." onClick={() => setIsAdding(true)} />}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {data.map(s => {
+                            const c = CARD_COLORS.find(col => col.id === (s.color || 'c3')); const isDark = s.color === 'c5';
+                            return (
+                                <div key={s.id} onClick={() => { setActiveSubjectId(s.id); setView('subject'); }} className={`${c.bg} p-6 rounded-xl shadow-sm border border-[#E1C6B5] cursor-pointer hover:-translate-y-1 transition-all group`}>
+                                    <div className="flex justify-between items-start mb-2"><h3 className={`text-xl font-bold font-serif ${isDark ? 'text-white' : ''}`}>{s.name}</h3><div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={(e) => { e.stopPropagation(); setFormName(s.name); setFormColor(s.color); setEditingItem(s); setIsAdding(true); }} className="p-1.5 rounded bg-black/10 hover:bg-black/20 text-current"><Edit2 size={14}/></button><button onClick={(e) => { e.stopPropagation(); deleteItem('subject', s.id); }} className="p-1.5 rounded bg-red-500/20 hover:bg-red-500 text-white"><Trash2 size={14}/></button></div></div>
+                                    <div className="flex flex-wrap gap-2 mt-2"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isDark ? 'bg-white/20 text-white' : 'bg-white/60 text-[#777C68]'}`}>{s.careerYear}</span><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isDark ? 'bg-white/20 text-white' : 'bg-white/60 text-[#777C68]'}`}>{s.semester}</span></div>
+                                    <p className={`text-xs mt-4 ${isDark ? 'text-white/70' : 'text-[#777C68]'}`}>{s.topics.length} temas</p>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <CalendarWidget events={events} onUpdateEvents={handleUpdateEvents} />
+                </div>
+            );
+
+            const renderSubject = () => (
+                <div className="space-y-6 animate-in fade-in">
+                    <button onClick={() => setView('home')} className={`text-sm flex items-center gap-1 ${THEME.textMuted} hover:${THEME.accent}`}><ArrowLeft size={14}/> Volver a Materias</button>
+                    <div className="flex justify-between items-center"><h2 className={`text-2xl font-serif font-bold ${THEME.accent}`}>{activeSubject.name}</h2><Button onClick={() => { resetForms(); setIsAdding(true); }}><Plus size={20}/> Tema</Button></div>
+                    {isAdding && (
+                        <div className="bg-white p-5 rounded-xl shadow-lg border border-[#C1C0AE]">
+                            <h3 className="font-bold mb-4">{editingItem ? 'Editar Tema' : 'Nuevo Tema'}</h3>
+                            <div className="space-y-3">
+                                <div><label className="text-xs font-bold text-[#777C68]">TÍTULO</label><Input autoFocus value={formName} onChange={e => setFormName(e.target.value)} /></div>
+                                <div><label className="text-xs font-bold text-[#777C68]">DESCRIPCIÓN</label><Input value={formDesc} onChange={e => setFormDesc(e.target.value)} placeholder="Opcional" /></div>
+                            </div>
+                            <div className="flex flex-col sm:flex-row justify-between items-center mt-6 gap-4"><ColorSelector selectedColor={formColor} onSelect={setFormColor} /><div className="flex gap-2 w-full sm:w-auto mobile-stack"><Button variant="ghost" onClick={() => setIsAdding(false)} className="w-full sm:w-auto">Cancelar</Button><Button onClick={handleSaveTopic} className="w-full sm:w-auto">Guardar</Button></div></div>
+                        </div>
+                    )}
+                    {activeSubject.topics.length === 0 && !isAdding && <EmptyState icon={BookOpen} title="Materia vacía" text="Agrega temas para empezar a estudiar." onClick={() => setIsAdding(true)} />}
+                    <div className="space-y-3">
+                        {activeSubject.topics.map(t => {
+                             const c = CARD_COLORS.find(col => col.id === (t.color || 'c3'));
+                             return (
+                                <div key={t.id} onClick={() => { setActiveTopicId(t.id); setView('topic'); }} className={`${c.bg} p-4 rounded-lg flex justify-between items-center cursor-pointer hover:shadow-md transition group`}>
+                                    <div className="flex items-center gap-4"><div className="bg-white/40 p-2 rounded-full"><BookOpen size={20} className={t.color === 'c5' ? 'text-white' : '#777C68'}/></div><div><h4 className={`font-bold ${t.color==='c5' ? 'text-white' : THEME.text}`}>{t.name}</h4><span className={`text-xs ${t.color==='c5' ? 'text-white/70' : THEME.textMuted}`}>{t.cards.length} tarjetas</span></div></div>
+                                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition"><button onClick={(e) => { e.stopPropagation(); setFormName(t.name); setFormDesc(t.description); setFormColor(t.color); setEditingItem(t); setIsAdding(true); }} className="p-2 bg-white/50 rounded-full hover:bg-white"><Edit2 size={14}/></button><button onClick={(e) => { e.stopPropagation(); deleteItem('topic', t.id); }} className="p-2 bg-white/50 rounded-full hover:bg-red-500 hover:text-white"><Trash2 size={14}/></button><ChevronRight className={t.color === 'c5' ? 'text-white' : '#777C68'}/></div>
+                                </div>
+                             )
+                        })}
+                    </div>
+                </div>
+            );
+
+            const renderTopic = () => {
+                if (isStudyMode && studyCards.length > 0) {
+                    const card = studyCards[currentCardIndex];
+                    return (
+                        <div className="h-[calc(100vh-100px)] flex flex-col animate-in fade-in">
+                            <div className="flex justify-between items-center mb-4">
+                                <Button variant="secondary" onClick={() => setIsStudyMode(false)}><ArrowLeft size={16}/> Salir</Button>
+                                <span className="bg-white border px-3 py-1 rounded-full text-xs font-mono">{currentCardIndex + 1} / {studyCards.length}</span>
+                            </div>
+                            <div className="flex-1 flex flex-col justify-center items-center">
+                                {/* FIX: Se fuerza el aspect-square y se limita el ancho, no la altura */}
+                                <Flashcard 
+                                    className="w-full max-w-md aspect-square mx-auto shadow-xl"
+                                    question={card.question} answer={card.answer} colorId={card.color} 
+                                    isFlipped={studyCardFlipped} onFlip={() => setStudyCardFlipped(!studyCardFlipped)} 
+                                />
+                            </div>
+                            <div className="flex justify-center gap-4 mt-8 pb-8">
+                                <Button variant="secondary" onClick={handlePrevCard}>Anterior</Button>
+                                <Button onClick={handleNextCard}>Siguiente</Button>
+                            </div>
+                            <div className="text-center text-xs text-gray-400 mt-2 hidden md:block">Usa flechas y espacio</div>
+                        </div>
+                    );
+                }
+                return (
+                    <div className="space-y-6 animate-in fade-in">
+                        <button onClick={() => setView('subject')} className={`text-sm flex items-center gap-1 ${THEME.textMuted} hover:${THEME.accent}`}><ArrowLeft size={14}/> Volver a {activeSubject.name}</button>
+                        <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 pb-4 border-b border-[#C1C0AE]">
+                            <div><h2 className={`text-2xl font-serif font-bold ${THEME.accent}`}>{activeTopic.name}</h2><p className="text-xs text-[#777C68] mt-1">{activeTopic.description}</p></div>
+                            <div className="flex gap-2"><Button onClick={() => startStudy(true)} className="bg-[#E1C6B5] text-[#6B5B4F] hover:bg-[#d6bba9] border-none px-3" title="Aleatorio"><Shuffle size={18} /></Button><Button onClick={() => startStudy(false)} className="bg-[#777C68] text-white"><Play size={18}/> Estudiar</Button><Button variant="secondary" onClick={() => { resetForms(); setIsAdding(true); }}><Plus size={18}/> Tarjeta</Button></div>
+                        </div>
+                        {isAdding && (
+                            <div className="bg-white p-5 rounded-xl shadow-lg border border-[#CC997A] relative">
+                                <h3 className="font-bold mb-4 text-[#CC997A]">{editingItem ? 'Editar Tarjeta' : 'Nueva Tarjeta'}</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-1"><label className="text-xs font-bold text-[#777C68] uppercase tracking-wider">Frente</label><TextArea value={formQ} onChange={e => setFormQ(e.target.value)} placeholder="Pregunta..." className="h-32"/></div>
+                                    <div className="space-y-1"><label className="text-xs font-bold text-[#777C68] uppercase tracking-wider">Dorso</label><TextArea value={formA} onChange={e => setFormA(e.target.value)} placeholder="Respuesta..." className="h-32"/></div>
+                                </div>
+                                <div className="flex flex-col sm:flex-row justify-between items-center mt-6 gap-4"><ColorSelector selectedColor={formColor} onSelect={setFormColor} /><div className="flex gap-2 w-full sm:w-auto mobile-stack"><Button variant="ghost" onClick={() => setIsAdding(false)} className="w-full sm:w-auto">Cancelar</Button><Button onClick={handleSaveCard} className="w-full sm:w-auto">Guardar Tarjeta</Button></div></div>
+                            </div>
+                        )}
+                        {activeTopic.cards.length === 0 && !isAdding && <EmptyState icon={LayoutGrid} title="Tema vacío" text="Crea tarjetas de estudio para repasar este tema." onClick={() => setIsAdding(true)} />}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {activeTopic.cards.map((c, idx) => (
+                                <div key={c.id} className="group relative">
+                                    <Flashcard question={c.question} answer={c.answer} colorId={c.color} isFlipped={flippedCards[c.id]} onFlip={() => setFlippedCards(prev => ({...prev, [c.id]: !prev[c.id]}))} />
+                                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition z-10">
+                                        <button onClick={(e) => { e.stopPropagation(); setFormQ(c.question); setFormA(c.answer); setFormColor(c.color); setEditingItem(c); setIsAdding(true); }} className="p-2 bg-white rounded-full hover:bg-gray-100 shadow-sm"><Edit2 size={14}/></button>
+                                        <button onClick={(e) => { e.stopPropagation(); deleteItem('card', c.id); }} className="p-2 bg-white rounded-full hover:bg-red-100 text-red-500 shadow-sm"><Trash2 size={14}/></button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            };
+
+            if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#FDFBF7] text-[#CC997A] font-serif animate-pulse">Cargando Study Room...</div>;
+
+            return (
+                <div className={`min-h-screen ${THEME.bg} ${THEME.text} pb-20`}>
+                    {renderHeader()}
+                    {isSettingsOpen && renderSettingsModal()}
+                    <main className="max-w-5xl mx-auto px-4 py-6">
+                        {view === 'home' && renderHome()}
+                        {view === 'subject' && renderSubject()}
+                        {view === 'topic' && renderTopic()}
+                    </main>
+                </div>
+            );
+        }
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
