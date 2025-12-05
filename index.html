@@ -6,7 +6,7 @@
     <title>Study Room - Tu Espacio</title>
     
     <!-- FAVICON: Ícono de Libros -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📚</text></svg>">
+    <link rel="icon" type="image/jpg" href="gatito.jpg">
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -29,13 +29,16 @@
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .animate-in { animation: fadeIn 0.5s ease-out forwards; }
         
-        /* Renderizado de resaltado */
+        /* Renderizado de estilos personalizados */
+        .highlight-text u {
+            text-decoration: underline;
+            text-decoration-color: #CC997A;
+            text-decoration-thickness: 2px;
+            text-underline-offset: 2px;
+        }
         .highlight-text strong {
-            background-color: #fef08a; /* Amarillo suave */
-            color: #854d0e;
-            padding: 0 4px;
-            border-radius: 4px;
-            font-weight: 700;
+            font-weight: 800;
+            color: inherit;
         }
         
         @media (max-width: 640px) {
@@ -69,7 +72,6 @@
         const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
         
-        // CORREGIDO: Ahora coincide con tu proyecto "studyroombyluli"
         const appId = "studyroombyluli"; 
 
         // Exportamos para que React lo use
@@ -108,19 +110,24 @@
             inputBorder: `border-[#C1C0AE] focus:ring-[#CC997A]`,
         };
 
-        // --- Utilidad para parsear texto con resaltado ---
+        // --- Utilidad para parsear texto con formato ---
         const parseText = (text) => {
             if (!text) return null;
-            // Divide por saltos de línea para preservar párrafos
+            // Divide por saltos de línea
             const lines = text.split('\n');
             return lines.map((line, i) => {
-                // Reemplaza **texto** por <strong>texto</strong>
-                const parts = line.split(/(\*\*.*?\*\*)/g);
+                // Regex: Captura **...** (subrayado) y *...* (negrita)
+                // Usamos split con grupos de captura para mantener los separadores
+                const parts = line.split(/(\*\*.*?\*\*|\*.*?\*)/g);
                 return (
                     <span key={i} className="block min-h-[1.5em]">
                         {parts.map((part, j) => {
                             if (part.startsWith('**') && part.endsWith('**')) {
-                                return <strong key={j}>{part.slice(2, -2)}</strong>;
+                                // Subrayado para **texto**
+                                return <u key={j}>{part.slice(2, -2)}</u>;
+                            } else if (part.startsWith('*') && part.endsWith('*')) {
+                                // Negrita para *texto*
+                                return <strong key={j}>{part.slice(1, -1)}</strong>;
                             }
                             return part;
                         })}
@@ -207,9 +214,9 @@
             const [currentDate, setCurrentDate] = useState(new Date());
             const [selectedDate, setSelectedDate] = useState(new Date());
             const [isModalOpen, setIsModalOpen] = useState(false);
-            const [editEvent, setEditEvent] = useState(null); // Nuevo estado para editar
+            const [editEvent, setEditEvent] = useState(null); 
             const [eventForm, setEventForm] = useState({ title: '', type: 'examen', dateStr: '' });
-            const [upcomingAlerts, setUpcomingAlerts] = useState([]);
+            const [upcomingTasks, setUpcomingTasks] = useState([]);
 
             const months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
             const daysOfWeek = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
@@ -217,23 +224,19 @@
             const formatDateKey = (date) => date.toISOString().split('T')[0];
 
             useEffect(() => {
-                checkUpcomingEvents(events);
+                updateUpcomingTasks(events);
             }, [events]);
 
-            const checkUpcomingEvents = (currentEvents) => {
-                const today = new Date();
-                const tomorrow = new Date(today);
-                tomorrow.setDate(tomorrow.getDate() + 1);
+            const updateUpcomingTasks = (currentEvents) => {
+                const todayStr = formatDateKey(new Date());
                 
-                const todayStr = formatDateKey(today);
-                const tomorrowStr = formatDateKey(tomorrow);
-                const alerts = [];
+                // Filtrar eventos futuros (incluyendo hoy) y ordenarlos por fecha
+                const futureEvents = currentEvents
+                    .filter(e => e.dateStr >= todayStr)
+                    .sort((a, b) => a.dateStr.localeCompare(b.dateStr))
+                    .slice(0, 5); // Mostrar solo los próximos 5
 
-                currentEvents.forEach(event => {
-                    if (event.dateStr === todayStr) alerts.push({ ...event, time: 'HOY' });
-                    if (event.dateStr === tomorrowStr) alerts.push({ ...event, time: 'MAÑANA' });
-                });
-                setUpcomingAlerts(alerts);
+                setUpcomingTasks(futureEvents);
             };
 
             const openModal = (eventToEdit = null) => {
@@ -253,7 +256,6 @@
                 
                 let newEvents = [...events];
                 if (editEvent) {
-                    // Si estamos editando, filtramos el anterior
                     newEvents = newEvents.filter(ev => ev.id !== editEvent.id);
                 }
                 
@@ -279,16 +281,21 @@
                 <div className="mt-12 border-t border-[#C1C0AE] pt-8 animate-in fade-in">
                     <h2 className={`text-2xl font-bold font-serif ${THEME.accent} flex items-center gap-2 mb-6`}><Calendar size={24} /> Agenda Académica</h2>
                     
-                    {upcomingAlerts.length > 0 && (
-                        <div className="mb-6 bg-[#F1E8D9] border-l-4 border-[#CC997A] p-4 rounded-r-lg">
-                            <h3 className="flex items-center gap-2 text-[#9E7052] font-bold text-sm uppercase mb-2">
-                                <AlertCircle size={16} /> Próximos Exámenes
+                    {upcomingTasks.length > 0 && (
+                        <div className="mb-6 bg-[#F1E8D9] border-l-4 border-[#CC997A] p-4 rounded-r-lg shadow-sm">
+                            <h3 className="flex items-center gap-2 text-[#9E7052] font-bold text-sm uppercase mb-3">
+                                <AlertCircle size={16} /> Tareas Próximas
                             </h3>
-                            <div className="space-y-2">
-                                {upcomingAlerts.map((alert, idx) => (
-                                    <div key={idx} className="flex items-center gap-2 text-[#1a1a1a] text-sm">
-                                        <span className="font-bold px-2 py-0.5 bg-[#CC997A] text-white rounded text-[10px]">{alert.time}</span>
-                                        <span className="font-medium">{alert.title}</span>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {upcomingTasks.map((task, idx) => (
+                                    <div key={idx} className="flex items-center gap-3 bg-white/50 p-2 rounded-md">
+                                        <div className="flex flex-col items-center justify-center bg-white px-2 py-1 rounded border border-[#CC997A]/30 text-[#CC997A] min-w-[50px]">
+                                            <span className="text-[10px] font-bold uppercase leading-none">{task.dateStr.slice(5,7)}/{task.dateStr.slice(8)}</span>
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="font-bold text-[#1a1a1a] text-sm line-clamp-1">{task.title}</span>
+                                            <span className="text-[10px] uppercase tracking-wider text-[#777C68]">{task.type}</span>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
