@@ -14,7 +14,7 @@
     <!-- Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- Fuentes (Añadido peso 900 para negritas fuertes) -->
+    <!-- Fuentes -->
     <link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     
     <style>
@@ -32,13 +32,9 @@
         /* Renderizado de estilos personalizados */
         .highlight-text u {
             text-decoration: underline;
-            text-decoration-color: currentColor; /* Mismo color que el texto */
-            text-decoration-thickness: 2px;
+            text-decoration-color: currentColor; 
+            text-decoration-thickness: 1.5px;
             text-underline-offset: 3px;
-        }
-        .highlight-text strong {
-            font-weight: 900; /* Peso extra bold */
-            color: inherit;
         }
         
         @media (max-width: 640px) {
@@ -95,11 +91,11 @@
         const PALETTE = { c1: '#CC997A', c2: '#E1C6B5', c3: '#F1E8D9', c4: '#C1C0AE', c5: '#777C68' };
         
         const CARD_COLORS = [
-            { id: 'c3', bg: 'bg-[#F1E8D9]', backHex: '#C5B4A0', label: 'Crema' }, 
-            { id: 'c2', bg: 'bg-[#E1C6B5]', backHex: '#B89B88', label: 'Beige' }, 
-            { id: 'c1', bg: 'bg-[#CC997A]', backHex: '#9E7052', label: 'Terracota' }, 
-            { id: 'c4', bg: 'bg-[#C1C0AE]', backHex: '#8C8B7A', label: 'Salvia' }, 
-            { id: 'c5', bg: 'bg-[#777C68]', backHex: '#4A4E3E', label: 'Oliva', text: 'text-white' }, 
+            { id: 'c3', bg: 'bg-[#F1E8D9]', backHex: '#C5B4A0', highlight: 'bg-black/5', label: 'Crema' }, 
+            { id: 'c2', bg: 'bg-[#E1C6B5]', backHex: '#B89B88', highlight: 'bg-black/5', label: 'Beige' }, 
+            { id: 'c1', bg: 'bg-[#CC997A]', backHex: '#9E7052', highlight: 'bg-black/10', label: 'Terracota' }, 
+            { id: 'c4', bg: 'bg-[#C1C0AE]', backHex: '#8C8B7A', highlight: 'bg-black/10', label: 'Salvia' }, 
+            { id: 'c5', bg: 'bg-[#777C68]', backHex: '#4A4E3E', highlight: 'bg-white/20', label: 'Oliva', text: 'text-white' }, 
         ];
 
         const THEME = {
@@ -111,7 +107,7 @@
         };
 
         // --- Utilidad para parsear texto con formato ---
-        const parseText = (text) => {
+        const parseText = (text, highlightClass) => {
             if (!text) return null;
             const lines = text.split('\n');
             return lines.map((line, i) => {
@@ -122,7 +118,8 @@
                             if (part.startsWith('**') && part.endsWith('**')) {
                                 return <u key={j}>{part.slice(2, -2)}</u>; // Subrayado
                             } else if (part.startsWith('*') && part.endsWith('*')) {
-                                return <strong key={j}>{part.slice(1, -1)}</strong>; // Negrita Fuerte
+                                // Resaltado Suave
+                                return <span key={j} className={`${highlightClass} px-1 rounded mx-0.5`}>{part.slice(1, -1)}</span>; 
                             }
                             return part;
                         })}
@@ -175,30 +172,39 @@
             </div>
         );
 
-        // --- Flashcard Component (Ajustado) ---
-        const Flashcard = ({ question, answer, colorId, isFlipped, onFlip, subtopic, className = "w-full aspect-square max-h-72" }) => {
+        // --- Flashcard Component ---
+        const Flashcard = ({ question, answer, colorId, isFlipped, onFlip, subtitle, className = "w-full aspect-square max-h-72" }) => {
             const colorObj = CARD_COLORS.find(c => c.id === colorId) || CARD_COLORS[0];
             const textColor = colorObj.id === 'c5' ? 'text-white' : 'text-[#1a1a1a]';
-            const labelColor = colorObj.id === 'c5' ? 'text-white/70' : 'text-[#1a1a1a]/60';
+            const labelColor = colorObj.id === 'c5' ? 'text-white/60' : 'text-[#1a1a1a]/50';
+            const highlightClass = colorObj.highlight || 'bg-black/5';
 
             return (
                 <div className={`relative cursor-pointer perspective-1000 group select-none ${className}`} onClick={onFlip}>
                     <div className={`relative w-full h-full transition-transform duration-500 transform-style-3d shadow-lg rounded-xl ${isFlipped ? 'rotate-y-180' : ''}`}>
                         {/* Frente */}
                         <div className={`absolute w-full h-full backface-hidden ${colorObj.bg} rounded-xl p-6 flex flex-col items-center justify-center text-center`}>
-                            {subtopic && <span className={`text-[10px] font-bold uppercase tracking-widest ${labelColor} mb-1 opacity-80`}>{subtopic}</span>}
-                            <span className={`${labelColor} text-[10px] font-bold tracking-widest uppercase mb-2 border-b border-current pb-0.5`}>Frente</span>
-                            <div className={`text-xl font-medium ${textColor} font-serif leading-relaxed line-clamp-6 highlight-text w-full overflow-hidden`}>
-                                {parseText(question)}
+                            {subtitle && (
+                                <span className={`absolute top-6 left-0 right-0 text-[10px] font-bold uppercase tracking-widest ${labelColor} px-6`}>
+                                    {subtitle}
+                                </span>
+                            )}
+                            
+                            <div className={`text-xl font-medium ${textColor} font-serif leading-relaxed line-clamp-6 highlight-text w-full overflow-hidden mt-4`}>
+                                {parseText(question, highlightClass)}
                             </div>
-                            <p className={`absolute bottom-4 text-xs ${labelColor} opacity-60`}>Tocar para voltear</p>
+                            <p className={`absolute bottom-4 text-xs ${labelColor}`}>Tocar para voltear</p>
                         </div>
                         {/* Dorso */}
                         <div className={`absolute w-full h-full backface-hidden rotate-y-180 rounded-xl p-6 flex flex-col items-center justify-center text-center text-[#FDFBF7]`} style={{ backgroundColor: colorObj.backHex }}>
-                            {subtopic && <span className={`text-[10px] font-bold uppercase tracking-widest text-[#FDFBF7]/60 mb-1`}>{subtopic}</span>}
-                            <span className={`text-[#FDFBF7]/70 text-[10px] font-bold tracking-widest uppercase mb-2 border-b border-current pb-0.5`}>Dorso</span>
-                            <div className="text-lg font-medium leading-relaxed overflow-y-auto max-h-full scrollbar-hide highlight-text w-full">
-                                {parseText(answer)}
+                            {subtitle && (
+                                <span className={`absolute top-6 left-0 right-0 text-[10px] font-bold uppercase tracking-widest text-[#FDFBF7]/50 px-6`}>
+                                    {subtitle}
+                                </span>
+                            )}
+                            
+                            <div className="text-lg font-medium leading-relaxed overflow-y-auto max-h-full scrollbar-hide highlight-text w-full mt-4">
+                                {parseText(answer, 'bg-white/20')}
                             </div>
                         </div>
                     </div>
@@ -405,6 +411,8 @@
             const [formQ, setFormQ] = useState('');
             const [formA, setFormA] = useState('');
             const [formColor, setFormColor] = useState('c3');
+            const [formSubtitle, setFormSubtitle] = useState(''); // Estado para subtítulo
+            
             const [formYearTaken, setFormYearTaken] = useState(new Date().getFullYear());
             const [formSemester, setFormSemester] = useState('1° Cuatrimestre');
             const [formCareerYear, setFormCareerYear] = useState('1° Año');
@@ -536,7 +544,12 @@
                     if (sub.id === activeSubjectId) {
                         const updatedTopics = sub.topics.map(topic => {
                             if (topic.id === activeTopicId) {
-                                const newCard = { question: formQ, answer: formA, color: formColor };
+                                const newCard = { 
+                                    question: formQ, 
+                                    answer: formA, 
+                                    color: formColor,
+                                    subtitle: formSubtitle // Guardar subtítulo
+                                };
                                 return editingItem
                                     ? { ...topic, cards: topic.cards.map(c => c.id === editingItem.id ? { ...c, ...newCard } : c) }
                                     : { ...topic, cards: [...topic.cards, { id: Date.now(), ...newCard }] };
@@ -585,7 +598,9 @@
                 if (type === 'topic' && id === activeTopicId) setView('subject');
             };
 
-            const resetForms = () => { setFormName(''); setFormDesc(''); setFormQ(''); setFormA(''); setFormColor('c3'); };
+            const resetForms = () => { 
+                setFormName(''); setFormDesc(''); setFormQ(''); setFormA(''); setFormColor('c3'); setFormSubtitle('');
+            };
 
             // --- Renderers ---
 
@@ -699,7 +714,7 @@
                                 {/* FIX: Se fuerza el aspect-square y se limita el ancho, no la altura */}
                                 <Flashcard 
                                     className="w-full max-w-md aspect-square mx-auto shadow-xl"
-                                    subtopic={activeTopic.name}
+                                    subtitle={card.subtitle} 
                                     question={card.question} answer={card.answer} colorId={card.color} 
                                     isFlipped={studyCardFlipped} onFlip={() => setStudyCardFlipped(!studyCardFlipped)} 
                                 />
@@ -722,9 +737,13 @@
                         {isAdding && (
                             <div className="bg-white p-5 rounded-xl shadow-lg border border-[#CC997A] relative">
                                 <h3 className="font-bold mb-4 text-[#CC997A]">{editingItem ? 'Editar Tarjeta' : 'Nueva Tarjeta'}</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-1"><label className="text-xs font-bold text-[#777C68] uppercase tracking-wider">Frente</label><TextArea value={formQ} onChange={e => setFormQ(e.target.value)} placeholder="Pregunta (Tip: usa **subrayado** o *negrita*)" className="h-32"/></div>
-                                    <div className="space-y-1"><label className="text-xs font-bold text-[#777C68] uppercase tracking-wider">Dorso</label><TextArea value={formA} onChange={e => setFormA(e.target.value)} placeholder="Respuesta (Tip: usa **subrayado** o *negrita*)" className="h-32"/></div>
+                                <div className="space-y-3">
+                                    {/* Nuevo Campo: Subtítulo */}
+                                    <div><label className="text-xs font-bold text-[#777C68] uppercase tracking-wider">Subtítulo (Opcional)</label><Input value={formSubtitle} onChange={e => setFormSubtitle(e.target.value)} placeholder="Ej: Revolución Francesa" /></div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-1"><label className="text-xs font-bold text-[#777C68] uppercase tracking-wider">Frente</label><TextArea value={formQ} onChange={e => setFormQ(e.target.value)} placeholder="Pregunta (Tip: usa **subrayado** o *resaltado*)" className="h-32"/></div>
+                                        <div className="space-y-1"><label className="text-xs font-bold text-[#777C68] uppercase tracking-wider">Dorso</label><TextArea value={formA} onChange={e => setFormA(e.target.value)} placeholder="Respuesta (Tip: usa **subrayado** o *resaltado*)" className="h-32"/></div>
+                                    </div>
                                 </div>
                                 <div className="flex flex-col sm:flex-row justify-between items-center mt-6 gap-4"><ColorSelector selectedColor={formColor} onSelect={setFormColor} /><div className="flex gap-2 w-full sm:w-auto mobile-stack"><Button variant="ghost" onClick={() => setIsAdding(false)} className="w-full sm:w-auto">Cancelar</Button><Button onClick={handleSaveCard} className="w-full sm:w-auto">Guardar Tarjeta</Button></div></div>
                             </div>
@@ -733,9 +752,16 @@
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {activeTopic.cards.map((c, idx) => (
                                 <div key={c.id} className="group relative">
-                                    <Flashcard question={c.question} answer={c.answer} colorId={c.color} isFlipped={flippedCards[c.id]} onFlip={() => setFlippedCards(prev => ({...prev, [c.id]: !prev[c.id]}))} />
+                                    <Flashcard 
+                                        question={c.question} 
+                                        answer={c.answer} 
+                                        colorId={c.color} 
+                                        subtitle={c.subtitle} 
+                                        isFlipped={flippedCards[c.id]} 
+                                        onFlip={() => setFlippedCards(prev => ({...prev, [c.id]: !prev[c.id]}))} 
+                                    />
                                     <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition z-10">
-                                        <button onClick={(e) => { e.stopPropagation(); setFormQ(c.question); setFormA(c.answer); setFormColor(c.color); setEditingItem(c); setIsAdding(true); }} className="p-2 bg-white rounded-full hover:bg-gray-100 shadow-sm"><Edit2 size={14}/></button>
+                                        <button onClick={(e) => { e.stopPropagation(); setFormQ(c.question); setFormA(c.answer); setFormColor(c.color); setFormSubtitle(c.subtitle || ''); setEditingItem(c); setIsAdding(true); }} className="p-2 bg-white rounded-full hover:bg-gray-100 shadow-sm"><Edit2 size={14}/></button>
                                         <button onClick={(e) => { e.stopPropagation(); deleteItem('card', c.id); }} className="p-2 bg-white rounded-full hover:bg-red-100 text-red-500 shadow-sm"><Trash2 size={14}/></button>
                                     </div>
                                 </div>
