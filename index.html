@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Study Room - Tu Espacio</title>
     
-    <!-- FAVICON: Ícono de Libros (No requiere archivo externo) -->
-    <link rel="icon" type="image/jpg" href="gatito.jpg">    
+    <!-- FAVICON -->
+    <link rel="icon" type="image/jpg" href="gatito.jpg">
+    
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -28,6 +29,15 @@
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .animate-in { animation: fadeIn 0.5s ease-out forwards; }
         
+        /* Renderizado de resaltado */
+        .highlight-text strong {
+            background-color: #fef08a; /* Amarillo suave */
+            color: #854d0e;
+            padding: 0 4px;
+            border-radius: 4px;
+            font-weight: 700;
+        }
+        
         @media (max-width: 640px) {
             .mobile-stack { flex-direction: column; }
             .mobile-full { width: 100%; }
@@ -45,20 +55,20 @@
 
         // --- TUS CREDENCIALES DE FIREBASE ---
        const firebaseConfig = {
-  apiKey: "AIzaSyAP3p73IpGQtrorId5x2cE2fRlG_dhWci8",
-  authDomain: "studyroombyluli.firebaseapp.com",
-  projectId: "studyroombyluli",
-  storageBucket: "studyroombyluli.firebasestorage.app",
-  messagingSenderId: "866501891340",
-  appId: "1:866501891340:web:db6461f0e4ec533930e529"
-};
+          apiKey: "AIzaSyAP3p73IpGQtrorId5x2cE2fRlG_dhWci8",
+          authDomain: "studyroombyluli.firebaseapp.com",
+          projectId: "studyroombyluli",
+          storageBucket: "studyroombyluli.firebasestorage.app",
+          messagingSenderId: "866501891340",
+          appId: "1:866501891340:web:db6461f0e4ec533930e529"
+        };
         
-        // Inicializamos Firebase con tus datos
+        // Inicializamos Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
-        const appId = "studyroom-6323c"; // ID para guardar datos ordenados
+        const appId = "studyroombyluli"; 
 
         // Exportamos para que React lo use
         window.firebaseServices = { 
@@ -94,6 +104,27 @@
             secondary: `bg-white text-[#1a1a1a] border border-[#C1C0AE] hover:bg-[#F1E8D9]`,
             accent: `text-[#CC997A]`, logoBg: `bg-[#E1C6B5] text-[#1a1a1a]`, 
             inputBorder: `border-[#C1C0AE] focus:ring-[#CC997A]`,
+        };
+
+        // --- Utilidad para parsear texto con resaltado ---
+        const parseText = (text) => {
+            if (!text) return null;
+            // Divide por saltos de línea para preservar párrafos
+            const lines = text.split('\n');
+            return lines.map((line, i) => {
+                // Reemplaza **texto** por <strong>texto</strong>
+                const parts = line.split(/(\*\*.*?\*\*)/g);
+                return (
+                    <span key={i} className="block min-h-[1.5em]">
+                        {parts.map((part, j) => {
+                            if (part.startsWith('**') && part.endsWith('**')) {
+                                return <strong key={j}>{part.slice(2, -2)}</strong>;
+                            }
+                            return part;
+                        })}
+                    </span>
+                );
+            });
         };
 
         // --- Componentes UI ---
@@ -152,13 +183,17 @@
                         {/* Frente */}
                         <div className={`absolute w-full h-full backface-hidden ${colorObj.bg} rounded-xl p-6 flex flex-col items-center justify-center text-center`}>
                             <span className={`${labelColor} text-[10px] font-bold tracking-widest uppercase mb-2`}>Frente</span>
-                            <p className={`text-xl font-medium ${textColor} font-serif leading-relaxed line-clamp-6`}>{question}</p>
+                            <div className={`text-xl font-medium ${textColor} font-serif leading-relaxed line-clamp-6 highlight-text w-full overflow-hidden`}>
+                                {parseText(question)}
+                            </div>
                             <p className={`absolute bottom-4 text-xs ${labelColor} opacity-60`}>Tocar para voltear</p>
                         </div>
                         {/* Dorso */}
                         <div className={`absolute w-full h-full backface-hidden rotate-y-180 rounded-xl p-6 flex flex-col items-center justify-center text-center text-[#FDFBF7]`} style={{ backgroundColor: colorObj.backHex }}>
                             <span className={`text-[#FDFBF7]/70 text-[10px] font-bold tracking-widest uppercase mb-2`}>Dorso</span>
-                            <p className="text-lg font-medium leading-relaxed overflow-y-auto max-h-full scrollbar-hide">{answer}</p>
+                            <div className="text-lg font-medium leading-relaxed overflow-y-auto max-h-full scrollbar-hide highlight-text w-full">
+                                {parseText(answer)}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -170,21 +205,62 @@
             const [currentDate, setCurrentDate] = useState(new Date());
             const [selectedDate, setSelectedDate] = useState(new Date());
             const [isModalOpen, setIsModalOpen] = useState(false);
-            const [newEvent, setNewEvent] = useState({ title: '', type: 'examen' });
-            
+            const [editEvent, setEditEvent] = useState(null); // Nuevo estado para editar
+            const [eventForm, setEventForm] = useState({ title: '', type: 'examen', dateStr: '' });
+            const [upcomingAlerts, setUpcomingAlerts] = useState([]);
+
             const months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
             const daysOfWeek = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
             
-            const getDaysInMonth = (date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-            const getFirstDayOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
             const formatDateKey = (date) => date.toISOString().split('T')[0];
 
-            const handleAddEvent = (e) => {
+            useEffect(() => {
+                checkUpcomingEvents(events);
+            }, [events]);
+
+            const checkUpcomingEvents = (currentEvents) => {
+                const today = new Date();
+                const tomorrow = new Date(today);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                
+                const todayStr = formatDateKey(today);
+                const tomorrowStr = formatDateKey(tomorrow);
+                const alerts = [];
+
+                currentEvents.forEach(event => {
+                    if (event.dateStr === todayStr) alerts.push({ ...event, time: 'HOY' });
+                    if (event.dateStr === tomorrowStr) alerts.push({ ...event, time: 'MAÑANA' });
+                });
+                setUpcomingAlerts(alerts);
+            };
+
+            const openModal = (eventToEdit = null) => {
+                if (eventToEdit) {
+                    setEditEvent(eventToEdit);
+                    setEventForm({ title: eventToEdit.title, type: eventToEdit.type, dateStr: eventToEdit.dateStr });
+                } else {
+                    setEditEvent(null);
+                    setEventForm({ title: '', type: 'examen', dateStr: formatDateKey(selectedDate) });
+                }
+                setIsModalOpen(true);
+            };
+
+            const handleSaveEvent = (e) => {
                 e.preventDefault();
-                if (!newEvent.title) return;
-                const event = { id: Date.now(), dateStr: formatDateKey(selectedDate), ...newEvent };
-                onUpdateEvents([...events, event]);
-                setNewEvent({ title: '', type: 'examen' });
+                if (!eventForm.title || !eventForm.dateStr) return;
+                
+                let newEvents = [...events];
+                if (editEvent) {
+                    // Si estamos editando, filtramos el anterior
+                    newEvents = newEvents.filter(ev => ev.id !== editEvent.id);
+                }
+                
+                const event = { 
+                    id: editEvent ? editEvent.id : Date.now(), 
+                    ...eventForm 
+                };
+                
+                onUpdateEvents([...newEvents, event]);
                 setIsModalOpen(false);
             };
 
@@ -192,12 +268,31 @@
                 if(confirm('¿Borrar evento?')) onUpdateEvents(events.filter(ev => ev.id !== id));
             };
 
+            const getDaysInMonth = (date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+            const getFirstDayOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+
             const selectedDayEvents = events.filter(e => e.dateStr === formatDateKey(selectedDate));
 
             return (
                 <div className="mt-12 border-t border-[#C1C0AE] pt-8 animate-in fade-in">
                     <h2 className={`text-2xl font-bold font-serif ${THEME.accent} flex items-center gap-2 mb-6`}><Calendar size={24} /> Agenda Académica</h2>
                     
+                    {upcomingAlerts.length > 0 && (
+                        <div className="mb-6 bg-[#F1E8D9] border-l-4 border-[#CC997A] p-4 rounded-r-lg">
+                            <h3 className="flex items-center gap-2 text-[#9E7052] font-bold text-sm uppercase mb-2">
+                                <AlertCircle size={16} /> Próximos Exámenes
+                            </h3>
+                            <div className="space-y-2">
+                                {upcomingAlerts.map((alert, idx) => (
+                                    <div key={idx} className="flex items-center gap-2 text-[#1a1a1a] text-sm">
+                                        <span className="font-bold px-2 py-0.5 bg-[#CC997A] text-white rounded text-[10px]">{alert.time}</span>
+                                        <span className="font-medium">{alert.title}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-[#C1C0AE] overflow-hidden">
                             <div className="flex items-center justify-between p-4 border-b border-[#F1E8D9] bg-[#FDFBF7]">
@@ -235,28 +330,41 @@
                             <div className="flex-1 overflow-y-auto p-4 space-y-3">
                                 {selectedDayEvents.length === 0 ? <p className={`text-sm ${THEME.textMuted} text-center`}>Sin eventos</p> : 
                                     selectedDayEvents.map(ev => (
-                                        <div key={ev.id} className={`p-3 rounded-lg border-l-4 shadow-sm bg-[#FDFBF7] flex justify-between items-start ${ev.type==='examen'?'border-[#CC997A]':'border-[#777C68]'}`}>
+                                        <div key={ev.id} className={`p-3 rounded-lg border-l-4 shadow-sm bg-[#FDFBF7] flex justify-between items-start cursor-pointer hover:bg-white transition ${ev.type==='examen'?'border-[#CC997A]':'border-[#777C68]'}`} onClick={() => openModal(ev)}>
                                             <div><h4 className="font-bold text-sm">{ev.title}</h4><span className="text-[10px] uppercase font-bold text-[#777C68]">{ev.type}</span></div>
-                                            <button onClick={() => handleDeleteEvent(ev.id)}><Trash2 size={14} className="text-[#C1C0AE] hover:text-red-500"/></button>
+                                            <div className="flex gap-2">
+                                                <Edit2 size={14} className="text-[#C1C0AE]"/>
+                                                <button onClick={(e) => { e.stopPropagation(); handleDeleteEvent(ev.id); }}><Trash2 size={14} className="text-[#C1C0AE] hover:text-red-500"/></button>
+                                            </div>
                                         </div>
                                     ))
                                 }
                             </div>
-                            <div className="p-4 border-t border-[#F1E8D9]"><Button onClick={() => setIsModalOpen(true)} className="w-full justify-center"><Plus size={16}/> Agregar</Button></div>
+                            <div className="p-4 border-t border-[#F1E8D9]"><Button onClick={() => openModal()} className="w-full justify-center"><Plus size={16}/> Agregar</Button></div>
                         </div>
                     </div>
 
                     {isModalOpen && (
                         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                             <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-4 animate-in zoom-in-95">
-                                <h3 className="font-bold mb-4">Nuevo Evento</h3>
+                                <h3 className="font-bold mb-4">{editEvent ? 'Editar Evento' : 'Nuevo Evento'}</h3>
                                 <div className="space-y-4">
-                                    <Input autoFocus value={newEvent.title} onChange={e => setNewEvent({...newEvent, title: e.target.value})} placeholder="Título..." />
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <button onClick={() => setNewEvent({...newEvent, type:'examen'})} className={`py-2 rounded border text-sm ${newEvent.type==='examen'?'bg-[#CC997A] text-white':'text-[#777C68]'}`}>Examen</button>
-                                        <button onClick={() => setNewEvent({...newEvent, type:'inscripcion'})} className={`py-2 rounded border text-sm ${newEvent.type==='inscripcion'?'bg-[#777C68] text-white':'text-[#777C68]'}`}>Inscripción</button>
+                                    <div>
+                                        <label className="text-xs font-bold text-[#777C68] uppercase block mb-1">Título</label>
+                                        <Input autoFocus value={eventForm.title} onChange={e => setEventForm({...eventForm, title: e.target.value})} placeholder="Título..." />
                                     </div>
-                                    <div className="flex gap-2"><Button variant="ghost" onClick={() => setIsModalOpen(false)} className="flex-1">Cancelar</Button><Button onClick={handleAddEvent} className="flex-1">Guardar</Button></div>
+                                    <div>
+                                        <label className="text-xs font-bold text-[#777C68] uppercase block mb-1">Fecha</label>
+                                        <Input type="date" value={eventForm.dateStr} onChange={e => setEventForm({...eventForm, dateStr: e.target.value})} />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-[#777C68] uppercase block mb-1">Tipo</label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <button onClick={() => setEventForm({...eventForm, type:'examen'})} className={`py-2 rounded border text-sm ${eventForm.type==='examen'?'bg-[#CC997A] text-white':'text-[#777C68]'}`}>Examen</button>
+                                            <button onClick={() => setEventForm({...eventForm, type:'inscripcion'})} className={`py-2 rounded border text-sm ${eventForm.type==='inscripcion'?'bg-[#777C68] text-white':'text-[#777C68]'}`}>Inscripción</button>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2"><Button variant="ghost" onClick={() => setIsModalOpen(false)} className="flex-1">Cancelar</Button><Button onClick={handleSaveEvent} className="flex-1">Guardar</Button></div>
                                 </div>
                             </div>
                         </div>
@@ -298,14 +406,9 @@
             const [formSemester, setFormSemester] = useState('1° Cuatrimestre');
             const [formCareerYear, setFormCareerYear] = useState('1° Año');
 
-            // --- Firebase Integration (CORREGIDO: Sin auto-login para configuración personalizada) ---
+            // --- Firebase Integration ---
             useEffect(() => {
                 const { auth, onAuthStateChanged } = window.firebaseServices;
-                
-                // NOTA: Como usamos credenciales personalizadas, el token automático del entorno 
-                // generará un error de "mismatch". Por lo tanto, eliminamos la llamada a signInWithCustomToken.
-                // El usuario debe iniciar sesión manualmente con el botón "Acceder" (Google).
-
                 const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
                     setUser(currentUser);
                     setLoading(false);
@@ -330,7 +433,12 @@
                     return;
                 }
                 const { db, setDoc, doc, appId } = window.firebaseServices;
-                try { await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', collectionName), dataToSave); } catch (e) { console.error(e); }
+                try { 
+                    await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', collectionName), dataToSave); 
+                } catch (e) { 
+                    console.error(e);
+                    alert("Error al guardar en la nube: " + e.message + "\n\nRevisa las Reglas en Firebase Console.");
+                }
             };
 
             const handleUpdateEvents = (newEvents) => {
@@ -443,7 +551,7 @@
             const deleteItem = (type, id) => {
                 if (!confirm("¿Seguro que deseas eliminar esto?")) return;
                 
-                let newData = [...data]; // Copia para mutar localmente
+                let newData = [...data]; 
                 
                 if (type === 'subject') {
                     newData = newData.filter(s => s.id !== id);
@@ -467,11 +575,9 @@
                      }
                 }
                 
-                // Actualización doble: Local (para que se vea rápido) y Remota
-                setData(newData); 
+                setData(newData); // Actualización visual inmediata para que se sienta rápido
                 saveToFirestore('master', { items: newData });
 
-                // Redireccionar si borramos lo que estamos viendo
                 if (type === 'subject' && id === activeSubjectId) setView('home');
                 if (type === 'topic' && id === activeTopicId) setView('subject');
             };
@@ -613,8 +719,14 @@
                             <div className="bg-white p-5 rounded-xl shadow-lg border border-[#CC997A] relative">
                                 <h3 className="font-bold mb-4 text-[#CC997A]">{editingItem ? 'Editar Tarjeta' : 'Nueva Tarjeta'}</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-1"><label className="text-xs font-bold text-[#777C68] uppercase tracking-wider">Frente</label><TextArea value={formQ} onChange={e => setFormQ(e.target.value)} placeholder="Pregunta..." className="h-32"/></div>
-                                    <div className="space-y-1"><label className="text-xs font-bold text-[#777C68] uppercase tracking-wider">Dorso</label><TextArea value={formA} onChange={e => setFormA(e.target.value)} placeholder="Respuesta..." className="h-32"/></div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-[#777C68] uppercase tracking-wider">Frente</label>
+                                        <TextArea value={formQ} onChange={e => setFormQ(e.target.value)} placeholder="Pregunta (Tip: usa **resaltado**)" className="h-32"/>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-[#777C68] uppercase tracking-wider">Dorso</label>
+                                        <TextArea value={formA} onChange={e => setFormA(e.target.value)} placeholder="Respuesta (Tip: usa **resaltado**)" className="h-32"/>
+                                    </div>
                                 </div>
                                 <div className="flex flex-col sm:flex-row justify-between items-center mt-6 gap-4"><ColorSelector selectedColor={formColor} onSelect={setFormColor} /><div className="flex gap-2 w-full sm:w-auto mobile-stack"><Button variant="ghost" onClick={() => setIsAdding(false)} className="w-full sm:w-auto">Cancelar</Button><Button onClick={handleSaveCard} className="w-full sm:w-auto">Guardar Tarjeta</Button></div></div>
                             </div>
@@ -655,6 +767,3 @@
     </script>
 </body>
 </html>
-
-
-
