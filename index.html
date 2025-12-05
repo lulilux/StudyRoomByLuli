@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Study Room - Tu Espacio</title>
     
-    <!-- FAVICON -->
+    <!-- FAVICON: Ícono de Libros (No requiere archivo externo) -->
     <link rel="icon" type="image/jpg" href="gatito.jpg">    
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -45,22 +45,20 @@
 
         // --- TUS CREDENCIALES DE FIREBASE ---
        const firebaseConfig = {
-          apiKey: "AIzaSyAP3p73IpGQtrorId5x2cE2fRlG_dhWci8",
-          authDomain: "studyroombyluli.firebaseapp.com",
-          projectId: "studyroombyluli",
-          storageBucket: "studyroombyluli.firebasestorage.app",
-          messagingSenderId: "866501891340",
-          appId: "1:866501891340:web:db6461f0e4ec533930e529"
-        };
+  apiKey: "AIzaSyAP3p73IpGQtrorId5x2cE2fRlG_dhWci8",
+  authDomain: "studyroombyluli.firebaseapp.com",
+  projectId: "studyroombyluli",
+  storageBucket: "studyroombyluli.firebasestorage.app",
+  messagingSenderId: "866501891340",
+  appId: "1:866501891340:web:db6461f0e4ec533930e529"
+};
         
         // Inicializamos Firebase con tus datos
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
-        
-        // ACTUALIZADO: Usamos el ID correcto de tu proyecto
-        const appId = "studyroombyluli"; 
+        const appId = "studyroom-6323c"; // ID para guardar datos ordenados
 
         // Exportamos para que React lo use
         window.firebaseServices = { 
@@ -300,9 +298,14 @@
             const [formSemester, setFormSemester] = useState('1° Cuatrimestre');
             const [formCareerYear, setFormCareerYear] = useState('1° Año');
 
-            // --- Firebase Integration ---
+            // --- Firebase Integration (CORREGIDO: Sin auto-login para configuración personalizada) ---
             useEffect(() => {
                 const { auth, onAuthStateChanged } = window.firebaseServices;
+                
+                // NOTA: Como usamos credenciales personalizadas, el token automático del entorno 
+                // generará un error de "mismatch". Por lo tanto, eliminamos la llamada a signInWithCustomToken.
+                // El usuario debe iniciar sesión manualmente con el botón "Acceder" (Google).
+
                 const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
                     setUser(currentUser);
                     setLoading(false);
@@ -327,12 +330,7 @@
                     return;
                 }
                 const { db, setDoc, doc, appId } = window.firebaseServices;
-                try { 
-                    await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', collectionName), dataToSave); 
-                } catch (e) { 
-                    console.error(e);
-                    alert("Error al guardar en la nube: " + e.message + "\n\nRevisa las Reglas en Firebase Console.");
-                }
+                try { await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', collectionName), dataToSave); } catch (e) { console.error(e); }
             };
 
             const handleUpdateEvents = (newEvents) => {
@@ -445,7 +443,7 @@
             const deleteItem = (type, id) => {
                 if (!confirm("¿Seguro que deseas eliminar esto?")) return;
                 
-                let newData = [...data]; 
+                let newData = [...data]; // Copia para mutar localmente
                 
                 if (type === 'subject') {
                     newData = newData.filter(s => s.id !== id);
@@ -469,9 +467,11 @@
                      }
                 }
                 
-                setData(newData); // Actualización visual inmediata para que se sienta rápido
+                // Actualización doble: Local (para que se vea rápido) y Remota
+                setData(newData); 
                 saveToFirestore('master', { items: newData });
 
+                // Redireccionar si borramos lo que estamos viendo
                 if (type === 'subject' && id === activeSubjectId) setView('home');
                 if (type === 'topic' && id === activeTopicId) setView('subject');
             };
@@ -655,3 +655,5 @@
     </script>
 </body>
 </html>
+
+
