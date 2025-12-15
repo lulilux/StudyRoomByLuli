@@ -7,7 +7,6 @@
     
     <!-- FAVICON: Ícono de Libros -->
     <link rel="icon" type="image/jpg" href="gatito.jpg">
-    
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -513,6 +512,53 @@
                 setIsSettingsOpen(false);
             };
 
+            // --- REORDER LOGIC ---
+            const moveItem = (list, index, direction) => {
+                const newList = [...list];
+                const newIndex = index + direction;
+                if (newIndex >= 0 && newIndex < newList.length) {
+                    [newList[index], newList[newIndex]] = [newList[newIndex], newList[index]];
+                }
+                return newList;
+            };
+
+            const moveSubject = (index, direction, e) => {
+                e.stopPropagation();
+                const newData = moveItem(data, index, direction);
+                setData(newData);
+                saveToFirestore('master', { items: newData });
+            };
+
+            const moveTopic = (index, direction, e) => {
+                e.stopPropagation();
+                const newData = data.map(sub => {
+                    if (sub.id === activeSubjectId) {
+                        return { ...sub, topics: moveItem(sub.topics, index, direction) };
+                    }
+                    return sub;
+                });
+                setData(newData);
+                saveToFirestore('master', { items: newData });
+            };
+
+            const moveCard = (index, direction, e) => {
+                e.stopPropagation();
+                const newData = data.map(sub => {
+                    if (sub.id === activeSubjectId) {
+                        const updatedTopics = sub.topics.map(topic => {
+                            if (topic.id === activeTopicId) {
+                                return { ...topic, cards: moveItem(topic.cards, index, direction) };
+                            }
+                            return topic;
+                        });
+                        return { ...sub, topics: updatedTopics };
+                    }
+                    return sub;
+                });
+                setData(newData);
+                saveToFirestore('master', { items: newData });
+            };
+
             const handleSaveSubject = () => {
                 if (!formName.trim()) return;
                 const newSubject = { name: formName, color: formColor, yearTaken: formYearTaken, semester: formSemester, careerYear: formCareerYear };
@@ -657,11 +703,20 @@
                     )}
                     {data.length === 0 && !isAdding && <EmptyState icon={Book} title="Aún no hay materias" text="Comienza agregando tu primera materia." onClick={() => setIsAdding(true)} />}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {data.map(s => {
+                        {data.map((s, index) => {
                             const c = CARD_COLORS.find(col => col.id === (s.color || 'c3')); const isDark = s.color === 'c5';
                             return (
                                 <div key={s.id} onClick={() => { setActiveSubjectId(s.id); setView('subject'); }} className={`${c.bg} p-6 rounded-xl shadow-sm border border-[#E1C6B5] cursor-pointer hover:-translate-y-1 transition-all group`}>
-                                    <div className="flex justify-between items-start mb-2"><h3 className={`text-xl font-bold font-serif ${isDark ? 'text-white' : ''}`}>{s.name}</h3><div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={(e) => { e.stopPropagation(); setFormName(s.name); setFormColor(s.color); setEditingItem(s); setIsAdding(true); }} className="p-1.5 rounded bg-black/10 hover:bg-black/20 text-current"><Edit2 size={14}/></button><button onClick={(e) => { e.stopPropagation(); deleteItem('subject', s.id); }} className="p-1.5 rounded bg-red-500/20 hover:bg-red-500 text-white"><Trash2 size={14}/></button></div></div>
+                                    <div className="flex justify-between items-start mb-2">
+                                        <h3 className={`text-xl font-bold font-serif ${isDark ? 'text-white' : ''}`}>{s.name}</h3>
+                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button onClick={(e) => moveSubject(index, -1, e)} disabled={index === 0} className="p-1.5 rounded hover:bg-black/10 text-current"><ArrowLeft size={16}/></button>
+                                            <button onClick={(e) => moveSubject(index, 1, e)} disabled={index === data.length - 1} className="p-1.5 rounded hover:bg-black/10 text-current"><ArrowRight size={16}/></button>
+                                            <span className="w-px h-4 bg-current opacity-20 mx-1 self-center"></span>
+                                            <button onClick={(e) => { e.stopPropagation(); setFormName(s.name); setFormColor(s.color); setEditingItem(s); setIsAdding(true); }} className="p-1.5 rounded bg-black/10 hover:bg-black/20 text-current"><Edit2 size={14}/></button>
+                                            <button onClick={(e) => { e.stopPropagation(); deleteItem('subject', s.id); }} className="p-1.5 rounded bg-red-500/20 hover:bg-red-500 text-white"><Trash2 size={14}/></button>
+                                        </div>
+                                    </div>
                                     <div className="flex flex-wrap gap-2 mt-2"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isDark ? 'bg-white/20 text-white' : 'bg-white/60 text-[#777C68]'}`}>{s.careerYear}</span><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isDark ? 'bg-white/20 text-white' : 'bg-white/60 text-[#777C68]'}`}>{s.semester}</span></div>
                                     <p className={`text-xs mt-4 ${isDark ? 'text-white/70' : 'text-[#777C68]'}`}>{s.topics.length} temas</p>
                                 </div>
@@ -688,12 +743,19 @@
                     )}
                     {activeSubject.topics.length === 0 && !isAdding && <EmptyState icon={BookOpen} title="Materia vacía" text="Agrega temas para empezar a estudiar." onClick={() => setIsAdding(true)} />}
                     <div className="space-y-3">
-                        {activeSubject.topics.map(t => {
+                        {activeSubject.topics.map((t, index) => {
                              const c = CARD_COLORS.find(col => col.id === (t.color || 'c3'));
                              return (
                                 <div key={t.id} onClick={() => { setActiveTopicId(t.id); setView('topic'); }} className={`${c.bg} p-4 rounded-lg flex justify-between items-center cursor-pointer hover:shadow-md transition group`}>
                                     <div className="flex items-center gap-4"><div className="bg-white/40 p-2 rounded-full"><BookOpen size={20} className={t.color === 'c5' ? 'text-white' : '#777C68'}/></div><div><h4 className={`font-bold ${t.color==='c5' ? 'text-white' : THEME.text}`}>{t.name}</h4><span className={`text-xs ${t.color==='c5' ? 'text-white/70' : THEME.textMuted}`}>{t.cards.length} tarjetas</span></div></div>
-                                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition"><button onClick={(e) => { e.stopPropagation(); setFormName(t.name); setFormDesc(t.description); setFormColor(t.color); setEditingItem(t); setIsAdding(true); }} className="p-2 bg-white/50 rounded-full hover:bg-white"><Edit2 size={14}/></button><button onClick={(e) => { e.stopPropagation(); deleteItem('topic', t.id); }} className="p-2 bg-white/50 rounded-full hover:bg-red-500 hover:text-white"><Trash2 size={14}/></button><ChevronRight className={t.color === 'c5' ? 'text-white' : '#777C68'}/></div>
+                                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition">
+                                        <button onClick={(e) => moveTopic(index, -1, e)} disabled={index === 0} className="p-2 bg-white/50 rounded-full hover:bg-white text-current"><ArrowUp size={14}/></button>
+                                        <button onClick={(e) => moveTopic(index, 1, e)} disabled={index === activeSubject.topics.length - 1} className="p-2 bg-white/50 rounded-full hover:bg-white text-current"><ArrowDown size={14}/></button>
+                                        <span className="w-px h-4 bg-current opacity-20 mx-1 self-center"></span>
+                                        <button onClick={(e) => { e.stopPropagation(); setFormName(t.name); setFormDesc(t.description); setFormColor(t.color); setEditingItem(t); setIsAdding(true); }} className="p-2 bg-white/50 rounded-full hover:bg-white"><Edit2 size={14}/></button>
+                                        <button onClick={(e) => { e.stopPropagation(); deleteItem('topic', t.id); }} className="p-2 bg-white/50 rounded-full hover:bg-red-500 hover:text-white"><Trash2 size={14}/></button>
+                                        <ChevronRight className={t.color === 'c5' ? 'text-white' : '#777C68'}/>
+                                    </div>
                                 </div>
                              )
                         })}
@@ -761,6 +823,10 @@
                                         onFlip={() => setFlippedCards(prev => ({...prev, [c.id]: !prev[c.id]}))} 
                                     />
                                     <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition z-10">
+                                        <div className="flex mr-2 bg-white/50 rounded-full">
+                                            <button onClick={(e) => { e.stopPropagation(); moveCard(idx, -1, e); }} disabled={idx === 0} className="p-2 rounded-l-full hover:bg-white text-current"><MoveLeft size={14}/></button>
+                                            <button onClick={(e) => { e.stopPropagation(); moveCard(idx, 1, e); }} disabled={idx === activeTopic.cards.length - 1} className="p-2 rounded-r-full hover:bg-white text-current"><MoveRight size={14}/></button>
+                                        </div>
                                         <button onClick={(e) => { e.stopPropagation(); setFormQ(c.question); setFormA(c.answer); setFormColor(c.color); setFormSubtitle(c.subtitle || ''); setEditingItem(c); setIsAdding(true); }} className="p-2 bg-white rounded-full hover:bg-gray-100 shadow-sm"><Edit2 size={14}/></button>
                                         <button onClick={(e) => { e.stopPropagation(); deleteItem('card', c.id); }} className="p-2 bg-white rounded-full hover:bg-red-100 text-red-500 shadow-sm"><Trash2 size={14}/></button>
                                     </div>
